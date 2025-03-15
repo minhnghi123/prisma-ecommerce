@@ -12,55 +12,46 @@ export const login = async (
   res: Response,
   next: NextFunction
 ) => {
-  try {
-    const { email, password } = req.body;
-    if (!email || !password) throw new Error("Email and password are required");
-    const user = await prismaClient.user.findFirst({
-      where: {
-        email,
-      },
-    });
-    if (!user)
-      return next(
-        new BadRequestException("User not found !", ErrorCode.USER_NOT_FOUND)
-      );
-    if (!compareSync(password, user.password))
-      return next(
-        new BadRequestException(
-          "Incorrect Password!",
-          ErrorCode.INCORRECT_PASSWORD
-        )
-      );
-    const accessToken = jwt.sign(
-      {
-        userId: user.id,
-      },
-      ACCESS_TOKEN_SECRET,
-      {
-        expiresIn: "15m",
-      }
+  const { email, password } = req.body;
+  const user = await prismaClient.user.findFirst({
+    where: {
+      email,
+    },
+  });
+  if (!user)
+    return next(
+      new BadRequestException("User not found !", ErrorCode.USER_NOT_FOUND)
     );
-    const refreshToken = jwt.sign(
-      {
-        userId: user.id,
-      },
-      REFRESH_TOKEN_SECRET,
-      {
-        expiresIn: "7d",
-      }
+  if (!compareSync(password, user.password))
+    return next(
+      new BadRequestException(
+        "Incorrect Password!",
+        ErrorCode.INCORRECT_PASSWORD
+      )
     );
-    res.status(200).json({
-      user,
-      accessToken,
-      refreshToken,
-    });
-  } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(error.message);
-    } else {
-      throw new Error(String(error));
+  const accessToken = jwt.sign(
+    {
+      userId: user.id,
+    },
+    ACCESS_TOKEN_SECRET,
+    {
+      expiresIn: "15m",
     }
-  }
+  );
+  const refreshToken = jwt.sign(
+    {
+      userId: user.id,
+    },
+    REFRESH_TOKEN_SECRET,
+    {
+      expiresIn: "7d",
+    }
+  );
+  res.status(200).json({
+    user,
+    accessToken,
+    refreshToken,
+  });
 };
 
 export const signup = async (
@@ -78,7 +69,7 @@ export const signup = async (
       },
     });
     if (user)
-      next(
+      return next(
         new BadRequestException(
           "User already exist !",
           ErrorCode.USER_ALREADY_EXIST
@@ -93,7 +84,7 @@ export const signup = async (
     });
     res.status(200).json(user);
   } catch (error: any) {
-    next(
+    return next(
       new UnprocessableEntityException(
         //error.issues for detecting the validation of the SignUpSchema
         error?.issues,
