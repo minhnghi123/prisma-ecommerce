@@ -94,3 +94,7 @@ export const signup = async (
     );
   }
 };
+
+export const me = async (req: Request, res: Response, next: NextFunction) => {
+  res.status(200).json(req.user);
+};
