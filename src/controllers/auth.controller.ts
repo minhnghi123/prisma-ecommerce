@@ -5,6 +5,8 @@ import * as jwt from "jsonwebtoken";
 import { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } from "../secrets";
 import { BadRequestException } from "../exceptions/bad_request.exception";
 import { ErrorCode } from "../exceptions/root.exception";
+import { UnprocessableEntityException } from "../exceptions/validation.exception";
+import { SignUpSchema } from "../schema/user.schema";
 export const login = async (
   req: Request,
   res: Response,
@@ -61,8 +63,14 @@ export const login = async (
   }
 };
 
-export const signup = async (req: Request, res: Response) => {
+export const signup = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
+    //detect the validation
+    SignUpSchema.parse(req.body);
     const { email, password, name } = req.body;
     let user = await prismaClient.user.findFirst({
       where: {
@@ -70,9 +78,11 @@ export const signup = async (req: Request, res: Response) => {
       },
     });
     if (user)
-      throw new BadRequestException(
-        "User already exist !",
-        ErrorCode.USER_ALREADY_EXIST
+      next(
+        new BadRequestException(
+          "User already exist !",
+          ErrorCode.USER_ALREADY_EXIST
+        )
       );
     user = await prismaClient.user.create({
       data: {
@@ -82,11 +92,14 @@ export const signup = async (req: Request, res: Response) => {
       },
     });
     res.status(200).json(user);
-  } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(error.message);
-    } else {
-      throw new Error(String(error));
-    }
+  } catch (error: any) {
+    next(
+      new UnprocessableEntityException(
+        //error.issues for detecting the validation of the SignUpSchema
+        error?.issues,
+        "Unprocessable Entity",
+        ErrorCode.UNPROCESSED_ENTITY
+      )
+    );
   }
 };
